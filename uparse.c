@@ -319,25 +319,22 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
     }
 
     char *just_path;
+    char path_delim_str[2] = {PATH_DELIM,'\0'}; // "/" (not '/')
+    char nonempty_path[chars_until_query_delim+1];
 
     if (0 == delim_count) {
         // in this case, the path was '', not even '/'. so we create 
         // a default empty path of '/' to represent what '' implies
-        just_path = (char *) calloc(2,sizeof(char));
-        snprintf(just_path,2,"%c",PATH_DELIM);
+        just_path = (char *) &path_delim_str;
     } else {
-        just_path = (char *) calloc(chars_until_query_delim+1,sizeof(char));
-        if (NULL == just_path) {
-            fprintf(stderr,"cannot allocate just_path\n");
-            return NULL;
-        }
-        strlcpy(just_path,*s,chars_until_query_delim+1);
+        bzero((void *) nonempty_path,(chars_until_query_delim + 1) * sizeof(char));
+        strlcpy(nonempty_path,*s,chars_until_query_delim+1);
+        just_path = (char *) &nonempty_path;
     }
 
     path_t *path = (path_t *) malloc(sizeof(path_t));
     if (NULL == path) {
         fprintf(stderr,"cannot allocate path\n");
-        free(just_path);
         return NULL;
     }
     bzero((void *) path,sizeof(path_t));
@@ -352,7 +349,6 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
         path->path_elts = (char **) malloc(1 * sizeof(char *));
         path->path_elts[0] = (char *) calloc(1,sizeof(char));
         path->count = 1;
-        free(just_path);
         *path_out_err = NO_UPARSE_ERROR;
         return path;
     }
@@ -361,24 +357,18 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
     
     if (NULL == path->path_elts) {
         fprintf(stderr,"cannot allocate path\n");
-        free(just_path);
         return NULL;        
     }
     path->count = delim_count;
 
     char *tok;
     size_t i = 0;
-    char path_delim_str[2];
-    snprintf(path_delim_str,2,"%c",PATH_DELIM);
-
-    char *free_just_path = just_path;
 
     while (((tok = strsep(&just_path,path_delim_str)) != NULL) && (i < delim_count)) {
         if (0 != strcmp("",tok)) {
             path->path_elts[i] = strdup(tok);
             if (NULL == path->path_elts[i]) {
                 fprintf(stderr,"cannot dup %s\n",tok);
-                free(free_just_path);
                 free_path_t(path);
                 free(tok);                
                 return NULL;
@@ -387,7 +377,6 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
         }
     }
 
-    free(free_just_path);
     *path_out_err = NO_UPARSE_ERROR;
     return path;
 }
@@ -429,14 +418,10 @@ static query_arg_list_t *get_query_arg_list(char **s,unsigned int *query_out_err
         query_str_len++;
     }
     query_pair_count = query_delim_count + 1;
-    // copy over just the query string
-    char *query_string = (char *) calloc(query_str_len,sizeof(char));
-    if (NULL == query_string) {
-        fprintf(stderr,"could not allocate query_string\n");
-        return NULL;
-    }
-    strncpy(query_string,c,query_str_len);
-    char *free_query_string = query_string;
+
+    char query_string[query_str_len+1];
+    bzero((void *) query_string,(query_str_len+1) * sizeof(char));
+    strlcpy(query_string,c,query_str_len+1);
 
     // stringify the delims for strsep
     char query_pair_delim_str[2];
@@ -448,26 +433,24 @@ static query_arg_list_t *get_query_arg_list(char **s,unsigned int *query_out_err
         (query_key_val_t **) malloc(query_pair_count * sizeof(query_key_val_t *));
     if (NULL == query_key_vals) {
         fprintf(stderr,"could not allocate query_key_val\n");
-        free(free_query_string);
         return NULL;
     }
     bzero((void *) query_key_vals,query_pair_count * sizeof(query_key_val_t *));
 
     unsigned int i = 0;
     char *pair_tok;
-    while ((pair_tok = strsep(&query_string,query_pair_delim_str)) != NULL) {
+    char *free_query_string = query_string;
+    while ((pair_tok = strsep(&free_query_string,query_pair_delim_str)) != NULL) {
         if (0 != strcmp("",pair_tok)) {
             if (i >= query_pair_count) {
                 fprintf(stderr,"loop count %d >= previous pair count %d\n",
                         i,query_pair_count);
-                free(free_query_string);
                 free_query_key_val_t_list(query_key_vals,query_pair_count);
                 return NULL;
             }
             char *sep_pair_tok = strdup(pair_tok);
             if (NULL == sep_pair_tok) {
                 fprintf(stderr,"could not allocate sep_pair_tok\n");
-                free(free_query_string);
                 free_query_key_val_t_list(query_key_vals,query_pair_count);
                 return NULL;
             }
@@ -479,7 +462,6 @@ static query_arg_list_t *get_query_arg_list(char **s,unsigned int *query_out_err
                 (query_key_val_t *) malloc(sizeof(query_key_val_t));
             if (NULL == query_key_val_tok) {
                 fprintf(stderr,"could not allocate query_key_val_tok\n");
-                free(free_query_string);
                 free_query_key_val_t_list(query_key_vals,query_pair_count);
                 free(free_sep_pair_tok);
                 return NULL;
@@ -495,7 +477,6 @@ static query_arg_list_t *get_query_arg_list(char **s,unsigned int *query_out_err
             if (NULL == strstr(sep_pair_tok,query_key_value_delim_str)) {
                 fprintf(stderr,"could not find '%s' in query pair '%s'\n",
                         query_key_value_delim_str,sep_pair_tok);
-                free(free_query_string);
                 free_query_key_val_t_list(query_key_vals,query_pair_count);
                 free_query_key_val_t(query_key_val_tok);
                 free(free_sep_pair_tok);
@@ -509,13 +490,12 @@ static query_arg_list_t *get_query_arg_list(char **s,unsigned int *query_out_err
                     seen_key = true;
                 } else {
                     val = strdup(kv_tok);
-                }                
+                }
             }
             free(kv_tok);
 
             if ((NULL == key) || (NULL == val)) {
                 fprintf(stderr,"either key or val from %s was null\n",free_sep_pair_tok);
-                free(free_query_string);
                 free_query_key_val_t_list(query_key_vals,query_pair_count);               
                 free_query_key_val_t(query_key_val_tok);
                 free(free_sep_pair_tok);
@@ -531,7 +511,6 @@ static query_arg_list_t *get_query_arg_list(char **s,unsigned int *query_out_err
                 while (*test_kv) {
                     if (!is_unreserved(*test_kv)) {
                         fprintf(stderr,"'%c' is invalid\n",*test_kv);
-                        free(free_query_string);
                         free_query_key_val_t_list(query_key_vals,query_pair_count);
                         free(free_sep_pair_tok);
                         free_query_key_val_t(query_key_val_tok);
@@ -552,7 +531,6 @@ static query_arg_list_t *get_query_arg_list(char **s,unsigned int *query_out_err
     }
 
     free(pair_tok);
-    free(free_query_string);
 
     query_arg_list_t *query_arg_list =
         (query_arg_list_t *) malloc(sizeof(query_arg_list_t));

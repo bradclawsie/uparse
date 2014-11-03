@@ -319,7 +319,7 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
     }
 
     char *just_path;
-    char path_delim_str[2] = {PATH_DELIM,'\0'}; // "/" (not '/')
+    const char path_delim_str[2] = {PATH_DELIM,'\0'}; // "/" (not '/')
     char nonempty_path[chars_until_query_delim+1];
 
     if (0 == delim_count) {

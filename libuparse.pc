@@ -1,0 +1,12 @@
+prefix=YOUR_PREFIX_HERE
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include/uparse
+
+Name: uparse
+Description: uparse is a url parser for common ascii urls
+URL: http://github.com/bradclawsie/uparse
+Version: 1
+Requires:
+Libs: -L${libdir} -luparse  
+Cflags: -I${includedir}

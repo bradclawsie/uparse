@@ -15,4 +15,4 @@ The code was developed on FreeBSD using clang34 and not tested on any other plat
 
 See the test programs for sample use. 
 
-
+The libuparse.pc is a sample file for those wishing to use pkg-config.

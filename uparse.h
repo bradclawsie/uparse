@@ -9,7 +9,7 @@
 #include <stdbool.h>
 
 #define NO_UPARSE_ERROR 0
-#define UPARSE_ERROR 1
+#define UPARSE_ERROR    1
 
 // a url is a { scheme, host_port, path, query, fragment }
 
@@ -49,6 +49,9 @@ typedef struct url_t {
     char*             fragment;
     char*             original; // the input string url
 } url_t;
+
+// escape a string
+char *url_escape(char const *const s);
 
 // -----------------
 // parse, init and free urls

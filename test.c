@@ -75,5 +75,7 @@ int main(void) {
             fprintf(stderr,"failure on %s\n",url_str[i]);
         }
     }
-    
+
+    printf("|%s|\n",url_escape("hello!##there"));
+    printf("|%s|\n",url_escape("!!!##"));
 }

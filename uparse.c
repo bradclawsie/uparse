@@ -11,6 +11,48 @@ static char const QUERY_PAIR_DELIM        = '&';
 static char const QUERY_KEY_VAL_DELIM     = '=';
 static char const FRAGMENT_DELIM          = '#';
 
+#define ESCAPE_CHARS_COUNT 18
+
+
+static char const ESCAPE_CHARS[ESCAPE_CHARS_COUNT] =
+    {'!','#','$','&','\'','(',')','*','+',
+     ',','/',':',';','=','?','@',']','['};
+static char const *const PERCENT_REPLACE[ESCAPE_CHARS_COUNT] =
+    {"%21","%23","%24","%26","%27","%28","%29","%2A","%2B",
+     "%2C","%2F","%3A","%3B","%3D","%3F","%40","%5B","%5D"};
+
+// -----------------------------------------
+
+// url escape a string. assumes all chars will need to be replaced,
+// allocates enough space to do so.
+char *url_escape(char const *const s) {
+    char const *c = s;
+    char *esc_s = (char *) calloc((3 * strlen(s)) + 1,sizeof(char));
+    size_t j = 0;
+    bool percent_replaced;
+    while (*c) {
+        percent_replaced = false;
+        for (size_t i = 0; i < ESCAPE_CHARS_COUNT; i++) {
+            if (ESCAPE_CHARS[i] == *c) {
+                // *c needs to be replaced in esc_s with PERCENT_REPLACE[i]
+                char const *t = PERCENT_REPLACE[i];
+                for (size_t k = 0; k < 3; k++) {
+                    esc_s[j++] = *t++;
+                }
+                percent_replaced = true;
+                break;
+            }
+        }
+        if (!percent_replaced) {
+            // *c was not a escape char
+            esc_s[j++] = *c;
+        }
+        c++;
+    }
+    esc_s[j] = '\0';
+    return esc_s;
+}
+
 // -----------------------------------------
 
 static bool is_unreserved(char c) {

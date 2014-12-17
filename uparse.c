@@ -11,14 +11,13 @@ static char const QUERY_PAIR_DELIM        = '&';
 static char const QUERY_KEY_VAL_DELIM     = '=';
 static char const FRAGMENT_DELIM          = '#';
 
-#define ESCAPE_CHARS_COUNT 18
-
+#define ESCAPE_CHARS_COUNT 19
 
 static char const ESCAPE_CHARS[ESCAPE_CHARS_COUNT] =
-    {'!','#','$','&','\'','(',')','*','+',
+    {'!','#','$','%','&','\'','(',')','*','+',
      ',','/',':',';','=','?','@',']','['};
 static char const *const PERCENT_REPLACE[ESCAPE_CHARS_COUNT] =
-    {"%21","%23","%24","%26","%27","%28","%29","%2A","%2B",
+    {"%21","%23","%24","%25","%26","%27","%28","%29","%2A","%2B",
      "%2C","%2F","%3A","%3B","%3D","%3F","%40","%5B","%5D"};
 
 // -----------------------------------------

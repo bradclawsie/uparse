@@ -25,10 +25,19 @@ static char const *const PERCENT_REPLACE[ESCAPE_CHARS_COUNT] =
 // url escape a string. assumes all chars will need to be replaced,
 // allocates enough space to do so.
 char *url_escape(char const *const s) {
+
+    // build an array large enough to support every char being escaped (replaced by three chars)
+    size_t const c_esc_len = (3 * strlen(s)) + 1;
+    char *esc_s = (char *) calloc(c_esc_len,sizeof(char));
+    if (NULL == esc_s) {
+        fprintf(stderr,"cannot allocate esc_s\n");
+        return NULL;
+    }
+
     char const *c = s;
-    char *esc_s = (char *) calloc((3 * strlen(s)) + 1,sizeof(char));
     size_t j = 0;
     bool percent_replaced;
+
     while (*c) {
         percent_replaced = false;
         for (size_t i = 0; i < ESCAPE_CHARS_COUNT; i++) {
@@ -55,7 +64,7 @@ char *url_escape(char const *const s) {
 // -----------------------------------------
 
 static bool is_unreserved(char c) {
-    return (isalnum(c) || ('.' == c) || ('_' == c) || ('-' == c) || ('~' == c)); 
+    return (isalnum(c) || ('.' == c) || ('_' == c) || ('-' == c) || ('~' == c));
 }
 
 // -----------------------------------------
@@ -123,7 +132,7 @@ static void free_query_key_val_t(query_key_val_t *query_key_val) {
 }
 
 // query_key_val list destructor
-static void free_query_key_val_t_list(query_key_val_t **query_key_vals,size_t len) { 
+static void free_query_key_val_t_list(query_key_val_t **query_key_vals,size_t len) {
     if (NULL == query_key_vals) {
         return;
     }
@@ -192,6 +201,10 @@ static char *get_scheme(char **s, unsigned int *scheme_out_err) {
     char *c = *s;
     bool seen_prefix = false;
     size_t scheme_len = 0;
+    size_t j = 0;
+    size_t const s_len = strlen(*s);
+    char scheme_arr[s_len];
+
     // read scheme
     while (*c) {
         if (SCHEME_DELIM_PREFIX == c[0]) {
@@ -202,6 +215,8 @@ static char *get_scheme(char **s, unsigned int *scheme_out_err) {
             fprintf(stderr,"'%c' is invalid\n",*c);
             return NULL;
         }
+        scheme_arr[j++] = c[0];
+        scheme_arr[j] = '\0';
         scheme_len++;
         c++;
     }
@@ -213,14 +228,15 @@ static char *get_scheme(char **s, unsigned int *scheme_out_err) {
         fprintf(stderr,"scheme is zero length\n");
         return NULL;
     }
-    // parse slashes
-    char *scheme = (char *) calloc(scheme_len+1,sizeof(char));
+
+    // copy to a free-able string that can escape the function
+    char *scheme = strndup(scheme_arr,strlen(scheme_arr));
     if (NULL == scheme) {
         fprintf(stderr,"cannot allocate scheme\n");
         return NULL;
     }
-    strlcpy(scheme,*s,scheme_len+1);
 
+    // parse slashes
     for (size_t i = 0; i < 2; i++) {
         if ((NULL == c) || (SCHEME_SLASH != c[0])) {
             fprintf(stderr,"scheme slash %c not seen\n",SCHEME_SLASH);
@@ -237,7 +253,7 @@ static char *get_scheme(char **s, unsigned int *scheme_out_err) {
 // -----------------------------------------
 // HOST:PORT PARSING
 
-// Get the host:port section of the url. Doesn't support ipv6, unicode hosts, 
+// Get the host:port section of the url. Doesn't support ipv6, unicode hosts,
 // username annotations etc.
 // Every url must have a host (but the port is optional). If this returns NULL,
 // it is an error.
@@ -245,18 +261,18 @@ static host_port_t *get_host_port(char **s, unsigned int *host_port_out_err) {
     *host_port_out_err = UPARSE_ERROR; // default
     if ((NULL == s) || (0 == strlen(*s))) {
         fprintf(stderr,"arg pointer null\n");
-        return NULL;    
+        return NULL;
     }
 
-    char *c = *s; 
+    char *c = *s;
     size_t host_len = 0;
     size_t port_len = 0;
     char *host_start = *s;
     char *port_start = NULL;
     bool seen_host_delim = false;
     while (*c) {
-        // normally we would see the PATH_DELIM to break this, but 
-        // this can be '', so we must also look out for the 
+        // normally we would see the PATH_DELIM to break this, but
+        // this can be '', so we must also look out for the
         // QUERY_DELIM
         if ((PATH_DELIM == c[0]) || (QUERY_DELIM == c[0])) {
             break;
@@ -289,7 +305,7 @@ static host_port_t *get_host_port(char **s, unsigned int *host_port_out_err) {
     host_port_t *host_port = (host_port_t *) malloc(sizeof(host_port_t));
     if (NULL == host_port) {
         fprintf(stderr,"cannot allocate host_port\n");
-        return NULL;            
+        return NULL;
     }
     bzero((void *) host_port,sizeof(host_port_t));
 
@@ -336,7 +352,9 @@ static host_port_t *get_host_port(char **s, unsigned int *host_port_out_err) {
 // A url does not need to have a path, so this can return NULL without an error
 // being thrown
 static path_t *get_path(char **s, unsigned int *path_out_err) {
-    if ((NULL == s) || (0 == strlen(*s))) {
+
+    size_t const s_len = strlen(*s);
+    if ((NULL == s) || (0 == s_len)) {
         *path_out_err = NO_UPARSE_ERROR; // not an error: url can have no path
         return NULL;
     }
@@ -344,8 +362,14 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
     *path_out_err = UPARSE_ERROR; // default until end of function
 
     size_t delim_count = 0;
-    size_t chars_until_query_delim = 0;
     char *c = *s;
+    char *path_chars = (char *) calloc(s_len+1,sizeof(char));
+    if (NULL == path_chars) {
+        fprintf(stderr,"cannot allocate path_chars\n");
+        return NULL;
+    }
+    size_t j = 0;
+
     while (*c) {
         if (PATH_DELIM == *c) {
             delim_count++;
@@ -353,24 +377,22 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
             break;
         } else if (!is_unreserved(*c)) {
             fprintf(stderr,"'%c' is invalid\n",*c);
-            return NULL;            
+            return NULL;
         }
-        chars_until_query_delim++;
+        path_chars[j++] = *c;
         c++;
     }
+    path_chars[j] = '\0';
 
     char *just_path;
     const char path_delim_str[2] = {PATH_DELIM,'\0'}; // "/" (not '/')
-    char nonempty_path[chars_until_query_delim+1];
 
     if (0 == delim_count) {
-        // in this case, the path was '', not even '/'. so we create 
+        // in this case, the path was '', not even '/'. so we create
         // a default empty path of '/' to represent what '' implies
         just_path = (char *) &path_delim_str;
     } else {
-        bzero((void *) nonempty_path,(chars_until_query_delim + 1) * sizeof(char));
-        strlcpy(nonempty_path,*s,chars_until_query_delim+1);
-        just_path = (char *) &nonempty_path;
+        just_path = path_chars; // (char *) &nonempty_path;
     }
 
     path_t *path = (path_t *) malloc(sizeof(path_t));
@@ -388,17 +410,25 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
     // case of single '/' path (like: http://foo.com/?key=val)
     if (strlen(just_path) == 1) {
         path->path_elts = (char **) malloc(1 * sizeof(char *));
+        if (NULL == path->path_elts) {
+            fprintf(stderr,"cannot allocate path_elts\n");
+            return NULL;
+        }
         path->path_elts[0] = (char *) calloc(1,sizeof(char));
+        if (NULL == path->path_elts[0]) {
+            fprintf(stderr,"cannot allocate path_elts[0]\n");
+            return NULL;
+        }
         path->count = 1;
         *path_out_err = NO_UPARSE_ERROR;
         return path;
     }
 
     path->path_elts = (char **) malloc(delim_count * sizeof(char *));
-    
+
     if (NULL == path->path_elts) {
         fprintf(stderr,"cannot allocate path\n");
-        return NULL;        
+        return NULL;
     }
     path->count = delim_count;
 
@@ -411,7 +441,7 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
             if (NULL == path->path_elts[i]) {
                 fprintf(stderr,"cannot dup %s\n",tok);
                 free_path_t(path);
-                free(tok);                
+                free(tok);
                 return NULL;
             }
             i++;
@@ -426,9 +456,11 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
 // QUERY PARSING
 
 // A url doesn't have to have a ?query arg list, so this can return NULL
-// and not be an error. 
+// and not be an error.
 static query_arg_list_t *get_query_arg_list(char **s,unsigned int *query_out_err) {
-    if ((NULL == s) || (0 == strlen(*s))) {
+
+    size_t const s_len = strlen(*s);
+    if ((NULL == s) || (0 == s_len)) {
         *query_out_err = NO_UPARSE_ERROR;
         return NULL;
     }
@@ -450,19 +482,23 @@ static query_arg_list_t *get_query_arg_list(char **s,unsigned int *query_out_err
     char *t = c;
     unsigned int query_delim_count = 0;
     unsigned int query_pair_count = 0;
-    unsigned int query_str_len = 0;
+
+    char *query_string = (char *) calloc(s_len+1,sizeof(char));
+    if (NULL == query_string) {
+        fprintf(stderr,"cannot allocate query_string\n");
+        return NULL;
+    }
+    size_t j = 0;
+
     while ((*t) && (FRAGMENT_DELIM != *t)) {
         if (QUERY_PAIR_DELIM == *t) {
             query_delim_count++;
         }
         t++;
-        query_str_len++;
+        query_string[j++] = *t;
     }
+    query_string[j] = '\0';
     query_pair_count = query_delim_count + 1;
-
-    char query_string[query_str_len+1];
-    bzero((void *) query_string,(query_str_len+1) * sizeof(char));
-    strlcpy(query_string,c,query_str_len+1);
 
     // stringify the delims for strsep
     char query_pair_delim_str[2];
@@ -537,21 +573,21 @@ static query_arg_list_t *get_query_arg_list(char **s,unsigned int *query_out_err
 
             if ((NULL == key) || (NULL == val)) {
                 fprintf(stderr,"either key or val from %s was null\n",free_sep_pair_tok);
-                free_query_key_val_t_list(query_key_vals,query_pair_count);               
+                free_query_key_val_t_list(query_key_vals,query_pair_count);
                 free_query_key_val_t(query_key_val_tok);
                 free(free_sep_pair_tok);
                 free(key);
                 free(val);
                 return NULL;
             }
-            
+
             char *key_val_list[] = {key,val};
             char *test_kv;
             for (size_t j = 0;j < 2;j++) {
                 test_kv = key_val_list[i];
                 while (*test_kv) {
                     if (!is_unreserved(*test_kv)) {
-                        fprintf(stderr,"'%c' is invalid\n",*test_kv);
+                        fprintf(stderr,"'%c' is invalid from %s\n",*test_kv,*s);
                         free_query_key_val_t_list(query_key_vals,query_pair_count);
                         free(free_sep_pair_tok);
                         free_query_key_val_t(query_key_val_tok);
@@ -619,10 +655,10 @@ static char *get_fragment(char **s,unsigned int *fragment_out_err) {
     if (NULL == fragment) {
         fprintf(stderr,"cannot allocate fragment\n");
         *fragment_out_err = UPARSE_ERROR;
-        return NULL;        
+        return NULL;
     }
     char *test_fragment = fragment;
-    while (*test_fragment) {        
+    while (*test_fragment) {
         if (!is_unreserved(*test_fragment)) {
             fprintf(stderr,"'%c' is invalid\n",*test_fragment);
             free(fragment);
@@ -687,7 +723,7 @@ url_t *parse_url(char const *const url_string,unsigned int *url_err_out) {
         fprintf(stderr,"cannot allocate host\n");
         free_url_t(url);
         free(free_mut_url_string);
-        return NULL;        
+        return NULL;
     }
     url->port = host_port->port;
     free_host_port_t(host_port);
@@ -723,4 +759,3 @@ url_t *parse_url(char const *const url_string,unsigned int *url_err_out) {
     *url_err_out = NO_UPARSE_ERROR;
     return url;
 }
-

@@ -43,7 +43,7 @@ int test_url(const char *const url_str) {
 
 int main(void) {
 
-    char *url_str[] = 
+    char *url_str[] =
         {
             "https://foo.bar.com:512/foo/bar/baz?a=bbb&c=ddddd#boom",
             "http://foo.com",
@@ -76,6 +76,10 @@ int main(void) {
         }
     }
 
-    printf("|%s|\n",url_escape("hello!##there"));
-    printf("|%s|\n",url_escape("!!!##"));
+    char *esc_result1 = url_escape("hello!##there");
+    char *esc_result2 = url_escape("!!!##");
+    printf("|%s|\n",esc_result1);
+    printf("|%s|\n",esc_result2);
+    free(esc_result1);
+    free(esc_result2);
 }

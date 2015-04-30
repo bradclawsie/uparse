@@ -4,6 +4,7 @@
 
 int test_url(const char *const url_str) {
 
+    printf("CANDIDATE:%s\n",url_str);
     unsigned int url_out_err = 0;
     url_t *url = parse_url(url_str,&url_out_err);
     if ((NULL == url) || (NO_UPARSE_ERROR != url_out_err)) {
@@ -11,6 +12,7 @@ int test_url(const char *const url_str) {
         return EXIT_FAILURE;
     }
 
+    printf("RESULTS\n");
     // print
     printf("scheme:%s\n",url->scheme);
     printf("host:%s,port:%d\n",url->host,url->port);
@@ -46,6 +48,7 @@ int main(void) {
     char *url_str[] =
         {
             "https://foo.bar.com:512/foo/bar/baz?a=bbb&c=ddddd#boom",
+            "https://foo.bar.com:512/foo/bar/baz",
             "http://foo.com",
             "http:// foo bar/",
             "http://foo.com}",

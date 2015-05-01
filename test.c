@@ -4,7 +4,6 @@
 
 int test_url(const char *const url_str) {
 
-    printf("CANDIDATE:%s\n",url_str);
     unsigned int url_out_err = 0;
     url_t *url = parse_url(url_str,&url_out_err);
     if ((NULL == url) || (NO_UPARSE_ERROR != url_out_err)) {
@@ -15,35 +14,6 @@ int test_url(const char *const url_str) {
         }
         return EXIT_FAILURE;
     }
-
-    printf("RESULTS\n");
-    // print
-    printf("scheme:%s\n",url->scheme);
-    printf("host:%s,port:%d\n",url->host,url->port);
-    if (NULL != url->path_elt_list) {
-        printf("path str %s\n",url->path_elt_list->path_str);
-        printf("path count: %ld\n",url->path_elt_list->count);
-        char **k = url->path_elt_list->path_elts;
-        for (size_t i = 0; i < url->path_elt_list->count; i++) {
-            printf("path elt %ld:\t%s\n",i,*k++);
-        }
-    } else {
-        printf("path null\n");
-    }
-    if (NULL != url->query_arg_list) {
-        for (size_t i = 0; i < url->query_arg_list->count; i++) {
-            query_key_val_t *t = url->query_arg_list->query_key_vals[i];
-            printf("key-val pair %ld:\t%s %s\n",i,t->key,t->val);
-        }
-    }
-    if (NULL != url->fragment) {
-        printf("fragment:%s\n",url->fragment);
-    }
-
-    // free
-    free_url_t(url);
-    url = NULL;
-
     return EXIT_SUCCESS;
 }
 

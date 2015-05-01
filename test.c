@@ -9,6 +9,10 @@ int test_url(const char *const url_str) {
     url_t *url = parse_url(url_str,&url_out_err);
     if ((NULL == url) || (NO_UPARSE_ERROR != url_out_err)) {
         fprintf(stderr,"bad retval from parse_url\n");
+        if (NULL != url) {
+            free_url_t(url);
+            url = NULL;
+        }
         return EXIT_FAILURE;
     }
 

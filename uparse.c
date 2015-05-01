@@ -377,6 +377,7 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
             break;
         } else if (!is_unreserved(*c)) {
             fprintf(stderr,"'%c' is invalid\n",*c);
+            free(path_chars);
             return NULL;
         }
         path_chars[j++] = *c;
@@ -392,12 +393,19 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
         // a default empty path of '/' to represent what '' implies
         just_path = (char *) &path_delim_str;
     } else {
-        just_path = path_chars; // (char *) &nonempty_path;
+        just_path = strdup(path_chars);
+    }
+    free(path_chars);
+
+    if (NULL == just_path) {
+        fprintf(stderr,"cannot allocate just_path\n");
+        return NULL;
     }
 
     path_t *path = (path_t *) malloc(sizeof(path_t));
     if (NULL == path) {
         fprintf(stderr,"cannot allocate path\n");
+        free(just_path);
         return NULL;
     }
     bzero((void *) path,sizeof(path_t));
@@ -412,11 +420,13 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
         path->path_elts = (char **) malloc(1 * sizeof(char *));
         if (NULL == path->path_elts) {
             fprintf(stderr,"cannot allocate path_elts\n");
+            free_path_t(path);
             return NULL;
         }
         path->path_elts[0] = (char *) calloc(1,sizeof(char));
         if (NULL == path->path_elts[0]) {
             fprintf(stderr,"cannot allocate path_elts[0]\n");
+            free_path_t(path);
             return NULL;
         }
         path->count = 1;
@@ -428,6 +438,7 @@ static path_t *get_path(char **s, unsigned int *path_out_err) {
 
     if (NULL == path->path_elts) {
         fprintf(stderr,"cannot allocate path\n");
+        free_path_t(path);
         return NULL;
     }
     path->count = delim_count;

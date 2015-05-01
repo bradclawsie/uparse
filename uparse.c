@@ -258,6 +258,7 @@ static char *get_scheme(char **s, unsigned int *scheme_out_err) {
 // Every url must have a host (but the port is optional). If this returns NULL,
 // it is an error.
 static host_port_t *get_host_port(char **s, unsigned int *host_port_out_err) {
+
     *host_port_out_err = UPARSE_ERROR; // default
     if ((NULL == s) || (0 == strlen(*s))) {
         fprintf(stderr,"arg pointer null\n");

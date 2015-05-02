@@ -14,6 +14,7 @@ int test_url(const char *const url_str) {
         }
         return EXIT_FAILURE;
     }
+    free_url_t(url);
     return EXIT_SUCCESS;
 }
 
@@ -24,6 +25,8 @@ int main(void) {
             "https://foo.bar.com:512/foo/bar/baz?a=bbb&c=ddddd#boom",
             "https://foo.bar.com:512/foo/bar/baz",
             "http://foo.com",
+            "http://foo.com:43534534534",
+            "http://foo.com:444fff666",
             "http:// foo bar/",
             "http://foo.com}",
             "http//",

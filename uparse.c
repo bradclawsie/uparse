@@ -1,7 +1,5 @@
 #include "uparse.h"
 
-//static unsigned int const MAX_PORT        = 65535;
-
 static int const NO_PORT                  = 0;
 static int const ERROR_PORT               = -1;
 
@@ -9,6 +7,7 @@ static char const SCHEME_DELIM_PREFIX     = ':';
 static char const SCHEME_SLASH            = '/';
 static char const PATH_DELIM              = '/';
 static char const HOST_PORT_DELIM         = ':';
+static char const DOMAIN_DELIM            = '.';
 static char const QUERY_DELIM             = '?';
 /* static char const QUERY_PAIR_DELIM        = '&'; */
 /* static char const QUERY_KEY_VAL_DELIM     = '='; */
@@ -212,7 +211,7 @@ char *get_host(char **s, unsigned int *err_out) {
             (QUERY_DELIM     == c[0]) ||
             (FRAGMENT_DELIM  == c[0])) {
             break;
-        } else if (isspace(c[0])) {
+        } else if (!(isalpha(c[0]) || (DOMAIN_DELIM == c[0]))) {
             fprintf(stderr,"host has whitespace '%c'\n",c[0]);
             return NULL;
         } else if (max_host_len == j) {
@@ -321,7 +320,7 @@ int get_port(char **s, unsigned int *err_out) {
         return ERROR_PORT;
     }
 
-    // Advance pointer past the host.
+    // Advance pointer past the port.
     *s = c;
 
     *err_out = NO_UPARSE_ERROR;
@@ -333,6 +332,67 @@ int get_port(char **s, unsigned int *err_out) {
 
 // A url does not need to have a path, so this can return NULL without an error
 // being thrown
+
+char *get_path(char **s, unsigned int *err_out) {
+
+    *err_out = UPARSE_ERROR;
+
+    if (NULL == *s) {
+        return NULL;
+    }
+
+    // If the string is empty, that means there was nothing after
+    // the host/port (no path). Return the vacuous path "/".
+    if (strlen(*s) == 0) {
+        *err_out = NO_UPARSE_ERROR;
+        return strdup("/");
+    }
+
+    // Local copy we can advance.
+    char *c = *s;
+
+    // If the first char is not '/', then there is an error (our string is nonempty here).
+    if (PATH_DELIM != c[0]) {
+        return NULL;
+    }
+
+    // Advance past the '/'
+    c++;
+
+    // Choose a sensible limit for a port string.
+    size_t const max_path_len = 1024;
+    char path[max_path_len+1];
+    memset(&path[0], 0, sizeof(path));
+
+    size_t j = 0;
+
+    // we designate '/' to be the vacuous path (every url has at least this).
+    path[j] = PATH_DELIM;
+    j++;
+    
+    while (*c) {
+        if ((QUERY_DELIM    == c[0]) ||
+            (FRAGMENT_DELIM == c[0])) {
+            break;
+        } else if (!(isalpha(c[0]) || (PATH_DELIM == c[0]))) {
+            fprintf(stderr,"path char '%c' is not a alphanumeric or /\n",c[0]);
+            return NULL;
+        } else if (max_path_len == j) {
+            fprintf(stderr,"path str exceeds max path str len %lu\n",max_path_len);
+            return NULL;
+        } else {
+            path[j] = c[0];
+        }
+        c++;
+        j++;
+    }
+
+    // Advance pointer past the path.
+    *s = c;
+    path[j] = '\0';
+    *err_out = NO_UPARSE_ERROR;
+    return strdup(path);
+}
 
 // -----------------------------------------
 // QUERY PARSING
@@ -418,6 +478,24 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
     printf("have port:%d\n",port);
     printf("rest:%s\n",s);
 
+    char *path = get_path(&s,err_out);
+    if (NULL == path) {
+        fprintf(stderr,"cannot get path from %s\n",url_string);
+        free_url_t(url);
+        free(free_s);
+        return NULL;
+    }
+    if (NO_UPARSE_ERROR != *err_out) {
+        fprintf(stderr,"cannot get path from %s\n",url_string);
+        free_url_t(url);
+        free(free_s);
+        free(path);
+        return NULL;
+    }
+    url->path = path;
+    printf("have path:%s\n",path);
+    printf("rest:%s\n",s);
+    
     free(free_s);
     return url;
 }

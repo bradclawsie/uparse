@@ -14,6 +14,7 @@ int test_url(const char *const url_str) {
         }
         return EXIT_FAILURE;
     }
+    print_url(url);
     free_url_t(url);
     return EXIT_SUCCESS;
 }

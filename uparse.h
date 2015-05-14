@@ -28,5 +28,6 @@ char *url_escape(char const *const s);
 url_t *parse_url(char const *const url_string,unsigned int *url_err_out);
 void init_url_t(url_t *url);
 void free_url_t(url_t *url);
+void print_url(url_t *u);
 
 #endif

@@ -11,7 +11,7 @@ static char const DOMAIN_DELIM            = '.';
 static char const QUERY_DELIM             = '?';
 static char const QUERY_KEY_VAL_DELIM     = '='; 
 static char const FRAGMENT_DELIM          = '#';
-/* static char const QUERY_PAIR_DELIM        = '&'; */
+static char const QUERY_PAIR_DELIM        = '&'; 
 
 #define ESCAPE_CHARS_COUNT 19
 
@@ -327,6 +327,7 @@ int get_port(char **s, unsigned int *err_out) {
     return (int) port_long;
 }
 
+
 // -----------------------------------------
 // PATH PARSING
 
@@ -394,6 +395,7 @@ char *get_path(char **s, unsigned int *err_out) {
     return strdup(path);
 }
 
+
 // -----------------------------------------
 // QUERY PARSING
 
@@ -437,7 +439,7 @@ char *get_query(char **s, unsigned int *err_out) {
     while (*c) {
         if (FRAGMENT_DELIM == c[0]) {
             break;
-        } else if (!(isalnum(c[0]) || (QUERY_KEY_VAL_DELIM == c[0]))) {
+        } else if (!(isalnum(c[0]) || (QUERY_PAIR_DELIM == c[0]) || (QUERY_KEY_VAL_DELIM == c[0]))) {
             fprintf(stderr,"query char '%c' is not a alphanumeric or =\n",c[0]);
             return NULL;
         } else if (max_query_len == j) {
@@ -456,6 +458,7 @@ char *get_query(char **s, unsigned int *err_out) {
     *err_out = NO_UPARSE_ERROR;
     return strdup(query);
 }
+
 
 // -----------------------------------------
 // FRAGMENT PARSING
@@ -518,6 +521,7 @@ char *get_fragment(char **s, unsigned int *err_out) {
     return strdup(fragment);
 }
 
+
 // -----------------------------------------
 // URL PARSING
 
@@ -552,8 +556,6 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
         return NULL;
     }
     url->scheme = scheme;
-    printf("have scheme:%s\n",scheme);
-    printf("rest:%s\n",s);
 
     char *host = get_host(&s,err_out);
     if (NULL == host) {
@@ -570,8 +572,6 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
         return NULL;
     }
     url->host = host;
-    printf("have host:%s\n",host);
-    printf("rest:%s\n",s);
 
     int const port = get_port(&s,err_out);
     if (ERROR_PORT == port) {
@@ -587,8 +587,6 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
         return NULL;
     }
     url->port = port;
-    printf("have port:%d\n",port);
-    printf("rest:%s\n",s);
 
     char *path = get_path(&s,err_out);
     if (NULL == path) {
@@ -605,27 +603,12 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
         return NULL;
     }
     url->path = path;
-    printf("have path:%s\n",path);
-    printf("rest:%s\n",s);
 
     char *query = get_query(&s,err_out);
-    if (NULL == query) {
-        fprintf(stderr,"cannot get query from %s\n",url_string);
-        free_url_t(url);
-        free(free_s);
-        return NULL;
+    if ((NULL != query) && (UPARSE_ERROR != *err_out)) {
+        url->query = query;
     }
-    if (NO_UPARSE_ERROR != *err_out) {
-        fprintf(stderr,"cannot get query from %s\n",url_string);
-        free_url_t(url);
-        free(free_s);
-        free(query);
-        return NULL;
-    }
-    url->query = query;
-    printf("have query:%s\n",query);
-    printf("rest:%s\n",s);
-
+    
     char *fragment = get_fragment(&s,err_out);
     if ((NULL != fragment) && (UPARSE_ERROR != *err_out)) {
         url->fragment = fragment;
@@ -633,4 +616,20 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
     
     free(free_s);
     return url;
+}
+
+void print_url(url_t *u) {
+    if (NULL == u) {
+        printf("(null)\n");
+        return;
+    }
+    printf(" [ %s ] :// [ %s ] : [ %u ] [ %s ] ",u->scheme,u->host,u->port,u->path);
+    if (NULL != u->query) {
+        printf("? [ %s ] ",u->query);
+    }
+    if (NULL != u->fragment) {
+        printf("# [ %s ] ",u->fragment);
+    }
+    printf("\n");
+    return;
 }

@@ -627,16 +627,8 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
     printf("rest:%s\n",s);
 
     char *fragment = get_fragment(&s,err_out);
-    if ((UPARSE_ERROR == *err_out) || (NULL == fragment)) {
-        fprintf(stderr,"cannot get fragment from %s\n",url_string);
-        free_url_t(url);
-        free(free_s);
-        free(fragment);
-        return NULL;
-    } else {
+    if ((NULL != fragment) && (UPARSE_ERROR != *err_out)) {
         url->fragment = fragment;
-        printf("have fragment:%s\n",fragment);
-        printf("rest:%s\n",s);
     }
     
     free(free_s);

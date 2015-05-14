@@ -9,9 +9,9 @@ static char const PATH_DELIM              = '/';
 static char const HOST_PORT_DELIM         = ':';
 static char const DOMAIN_DELIM            = '.';
 static char const QUERY_DELIM             = '?';
-/* static char const QUERY_PAIR_DELIM        = '&'; */
-/* static char const QUERY_KEY_VAL_DELIM     = '='; */
+static char const QUERY_KEY_VAL_DELIM     = '='; 
 static char const FRAGMENT_DELIM          = '#';
+/* static char const QUERY_PAIR_DELIM        = '&'; */
 
 #define ESCAPE_CHARS_COUNT 19
 
@@ -211,7 +211,7 @@ char *get_host(char **s, unsigned int *err_out) {
             (QUERY_DELIM     == c[0]) ||
             (FRAGMENT_DELIM  == c[0])) {
             break;
-        } else if (!(isalpha(c[0]) || (DOMAIN_DELIM == c[0]))) {
+        } else if (!(isalnum(c[0]) || (DOMAIN_DELIM == c[0]))) {
             fprintf(stderr,"host has whitespace '%c'\n",c[0]);
             return NULL;
         } else if (max_host_len == j) {
@@ -359,7 +359,7 @@ char *get_path(char **s, unsigned int *err_out) {
     // Advance past the '/'
     c++;
 
-    // Choose a sensible limit for a port string.
+    // Choose a sensible limit for a path string.
     size_t const max_path_len = 1024;
     char path[max_path_len+1];
     memset(&path[0], 0, sizeof(path));
@@ -374,7 +374,7 @@ char *get_path(char **s, unsigned int *err_out) {
         if ((QUERY_DELIM    == c[0]) ||
             (FRAGMENT_DELIM == c[0])) {
             break;
-        } else if (!(isalpha(c[0]) || (PATH_DELIM == c[0]))) {
+        } else if (!(isalnum(c[0]) || (PATH_DELIM == c[0]))) {
             fprintf(stderr,"path char '%c' is not a alphanumeric or /\n",c[0]);
             return NULL;
         } else if (max_path_len == j) {
@@ -400,11 +400,123 @@ char *get_path(char **s, unsigned int *err_out) {
 // A url doesn't have to have a ?query arg list, so this can return NULL
 // and not be an error.
 
+char *get_query(char **s, unsigned int *err_out) {
+
+    *err_out = UPARSE_ERROR;
+
+    if (NULL == *s) {
+        *err_out = NO_UPARSE_ERROR;
+        return NULL;
+    }
+
+    // If the string is empty, that means there was nothing after
+    // the path (no query).
+    if (strlen(*s) == 0) {
+        *err_out = NO_UPARSE_ERROR;
+        return NULL;
+    }
+
+    // Local copy we can advance.
+    char *c = *s;
+
+    // If the first char is not '?', then there is an error (our string is nonempty here).
+    if (QUERY_DELIM != c[0]) {
+        return NULL;
+    }
+
+    // Advance past the '?'
+    c++;
+
+    // Choose a sensible limit for a query string.
+    size_t const max_query_len = 1024;
+    char query[max_query_len+1];
+    memset(&query[0], 0, sizeof(query));
+
+    size_t j = 0;
+
+    while (*c) {
+        if (FRAGMENT_DELIM == c[0]) {
+            break;
+        } else if (!(isalnum(c[0]) || (QUERY_KEY_VAL_DELIM == c[0]))) {
+            fprintf(stderr,"query char '%c' is not a alphanumeric or =\n",c[0]);
+            return NULL;
+        } else if (max_query_len == j) {
+            fprintf(stderr,"query str exceeds max query str len %lu\n",max_query_len);
+            return NULL;
+        } else {
+            query[j] = c[0];
+        }
+        c++;
+        j++;
+    }
+
+    // Advance pointer past the query.
+    *s = c;
+    query[j] = '\0';
+    *err_out = NO_UPARSE_ERROR;
+    return strdup(query);
+}
+
 // -----------------------------------------
 // FRAGMENT PARSING
 
 // No special destructor needed, fragment is just char *. A url does not need to have
 // a fragment, so a NULL return value is not strictly an error.
+
+char *get_fragment(char **s, unsigned int *err_out) {
+
+    *err_out = UPARSE_ERROR;
+
+    if (NULL == *s) {
+        *err_out = NO_UPARSE_ERROR;
+        return NULL;
+    }
+
+    // If the string is empty, that means there was nothing after
+    // the path/query (no fragment).
+    if (strlen(*s) == 0) {
+        *err_out = NO_UPARSE_ERROR;
+        return NULL;
+    }
+
+    // Local copy we can advance.
+    char *c = *s;
+
+    // If the first char is not '#', then there is an error (our string is nonempty here).
+    if (FRAGMENT_DELIM != c[0]) {
+        return NULL;
+    }
+
+    // Advance past the '?'
+    c++;
+
+    // Choose a sensible limit for a fragment string.
+    size_t const max_fragment_len = 1024;
+    char fragment[max_fragment_len+1];
+    memset(&fragment[0], 0, sizeof(fragment));
+
+    size_t j = 0;
+
+    while (*c) {
+        if (!isalnum(c[0])) {
+            fprintf(stderr,"fragment char '%c' is not a alphanumeric or =\n",c[0]);
+            return NULL;
+        } else if (max_fragment_len == j) {
+            fprintf(stderr,"fragment str exceeds max fragment str len %lu\n",max_fragment_len);
+            return NULL;
+        } else {
+            fragment[j] = c[0];
+        }
+        c++;
+        j++;
+    }
+
+    // Advance pointer past the fragment.
+    *s = c;
+    fragment[j] = '\0';
+    *err_out = NO_UPARSE_ERROR;
+    return strdup(fragment);
+}
 
 // -----------------------------------------
 // URL PARSING
@@ -495,6 +607,37 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
     url->path = path;
     printf("have path:%s\n",path);
     printf("rest:%s\n",s);
+
+    char *query = get_query(&s,err_out);
+    if (NULL == query) {
+        fprintf(stderr,"cannot get query from %s\n",url_string);
+        free_url_t(url);
+        free(free_s);
+        return NULL;
+    }
+    if (NO_UPARSE_ERROR != *err_out) {
+        fprintf(stderr,"cannot get query from %s\n",url_string);
+        free_url_t(url);
+        free(free_s);
+        free(query);
+        return NULL;
+    }
+    url->query = query;
+    printf("have query:%s\n",query);
+    printf("rest:%s\n",s);
+
+    char *fragment = get_fragment(&s,err_out);
+    if ((UPARSE_ERROR == *err_out) || (NULL == fragment)) {
+        fprintf(stderr,"cannot get fragment from %s\n",url_string);
+        free_url_t(url);
+        free(free_s);
+        free(fragment);
+        return NULL;
+    } else {
+        url->fragment = fragment;
+        printf("have fragment:%s\n",fragment);
+        printf("rest:%s\n",s);
+    }
     
     free(free_s);
     return url;

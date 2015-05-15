@@ -526,6 +526,7 @@ char *get_fragment(char **s, unsigned int *err_out) {
 // URL PARSING
 
 // main function for parsing a string url into a url struct
+
 url_t *parse_url(char const *const url_string,unsigned int *err_out) {
 
     *err_out = NO_UPARSE_ERROR;
@@ -617,6 +618,8 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
     free(free_s);
     return url;
 }
+
+// prints out a url for easy reading
 
 void print_url(url_t *u) {
     if (NULL == u) {

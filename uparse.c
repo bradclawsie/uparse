@@ -69,7 +69,7 @@ char *url_escape(char const *const s) {
 
 
 // -----------------------------------------
-// a url is a { scheme, host_port, path, query, fragment }
+// A url is a { scheme, host_port, path, query, fragment }
 
 void init_url_t(url_t *url) {
     url->scheme         = NULL;
@@ -457,6 +457,243 @@ char *get_query(char **s, unsigned int *err_out) {
     query[j] = '\0';
     *err_out = NO_UPARSE_ERROR;
     return strdup(query);
+}
+
+// query_key_val_t destructor.
+void free_query_key_val_t(query_key_val_t *query_key_val) {
+    if (NULL == query_key_val) {
+        return;
+    }
+    if (NULL != query_key_val->key) {
+        free(query_key_val->key);
+    }
+    if (NULL != query_key_val->val) {
+        free(query_key_val->val);
+    }
+    free(query_key_val);
+}
+
+// query_key_val list destructor.
+void free_query_key_val_t_list(query_key_val_t **query_key_vals,size_t len) {
+    if (NULL == query_key_vals) {
+        return;
+    }
+    for (size_t i = 0; i < len; i++) {
+        free_query_key_val_t(query_key_vals[i]);
+    }
+    free(query_key_vals);
+}
+
+// query_arg_list destructor.
+void free_arg_list_t(query_arg_list_t *query_arg_list) {
+    if (NULL == query_arg_list) {
+        return;
+    }
+    free_query_key_val_t_list(query_arg_list->query_key_vals,query_arg_list->count);
+    free(query_arg_list);
+}
+
+// Parse the query string part of a url and turn it into q query_arg_list_t, which
+// is a list of query_key_val_t structs and a count.
+query_arg_list_t *get_query_arg_list(char *const query_str, unsigned int *err_out) {
+
+    *err_out = UPARSE_ERROR; 
+    
+    if (NULL == query_str) {
+        *err_out = NO_UPARSE_ERROR; 
+        return NULL;
+    }
+
+    // stringify the delims for strsep
+    char query_pair_delim_str[2];
+    snprintf(query_pair_delim_str,2,"%c",QUERY_PAIR_DELIM);
+    char query_key_value_delim_str[2];
+    snprintf(query_key_value_delim_str,2,"%c",QUERY_KEY_VAL_DELIM);
+    
+    char *c = query_str;
+    size_t const str_len = 256;
+    
+    char *key = (char *) calloc(str_len, sizeof(char));
+    char *val = (char *) calloc(str_len, sizeof(char));
+    if ((NULL == key) || (NULL == val)) {
+        fprintf(stderr,"key or val is null\n");
+        free(key);
+        free(val);
+        return NULL;
+    }
+    
+    unsigned int const STATE_KEY_READ = 0;
+    unsigned int const STATE_VAL_READ = 1;
+    unsigned int state = STATE_KEY_READ;
+    
+    bool valid_key            = false;
+    bool valid_val            = false;
+    bool valid_query_key_vals = false;
+    
+    size_t j = 0;
+    size_t k = 0;
+
+    size_t key_val_count = 0;
+    size_t const max_query_key_vals = 512;
+    query_key_val_t **query_key_vals =
+        (query_key_val_t **) malloc(max_query_key_vals * sizeof(query_key_val_t *));
+    bzero((void *) query_key_vals,max_query_key_vals * sizeof(query_key_val_t *));
+    
+    while (*c) {
+        if (STATE_KEY_READ == state) {
+            if (QUERY_PAIR_DELIM == c[0]) {
+                fprintf(stderr,"found query pair delim %c when parsing key\n",QUERY_PAIR_DELIM);
+                free(key);
+                free(val);
+                free_query_key_val_t_list(query_key_vals,key_val_count);
+                return NULL;
+            }
+            if (QUERY_KEY_VAL_DELIM == c[0]) {
+                if (!valid_key) {
+                    fprintf(stderr,"found query key/val delim %c but no valid key\n",QUERY_KEY_VAL_DELIM);
+                    free(key);
+                    free(val);
+                    free_query_key_val_t_list(query_key_vals,key_val_count);
+                    return NULL;
+                } else {
+                    state = STATE_VAL_READ;
+                    key[j] = '\0';
+                }
+            } else {
+                if (j == (str_len - 1)) {
+                    fprintf(stderr,"key length exceeds %lu\n",str_len);
+                    free(key);
+                    free(val);
+                    free_query_key_val_t_list(query_key_vals,key_val_count);
+                    *err_out = OVERFLOW_ERROR; 
+                    return NULL;
+                } else {                    
+                    key[j++] = c[0];
+                    valid_key = true;
+                }
+            } 
+        } else if (STATE_VAL_READ == state) {
+            if (!valid_key) {
+                fprintf(stderr,"valid_key = false while parsing val\n");
+                free(key);
+                free(val);
+                free_query_key_val_t_list(query_key_vals,key_val_count);
+                return NULL;                
+            }
+            if (QUERY_KEY_VAL_DELIM == c[0]) {
+                fprintf(stderr,"parsing val and saw key/val delim %c \n",QUERY_KEY_VAL_DELIM);
+                free(key);
+                free(val);
+                free_query_key_val_t_list(query_key_vals,key_val_count);
+                return NULL;                
+            }
+            if (QUERY_PAIR_DELIM == c[0]) {
+                if (!valid_val) {
+                    fprintf(stderr,"found query pair delim %c but no valid val\n",QUERY_PAIR_DELIM);
+                    free(key);
+                    free(val);
+                    free_query_key_val_t_list(query_key_vals,key_val_count);
+                    return NULL;
+                } else {
+                    val[k] = '\0';
+                    query_key_vals[key_val_count] = (query_key_val_t *) malloc(sizeof(query_key_val_t));
+                    if (NULL == query_key_vals[key_val_count]) {
+                        fprintf(stderr,"cannot allocate query_key_vals[%lu]\n",key_val_count);
+                        free(key);
+                        free(val);
+                        free_query_key_val_t_list(query_key_vals,key_val_count);
+                        return NULL;                        
+                    }
+                    query_key_vals[key_val_count]->key = strdup(key);
+                    query_key_vals[key_val_count]->val = strdup(val);
+                    key_val_count++;
+                    if (key_val_count == (max_query_key_vals - 1)) {
+                        fprintf(stderr,"query query_key_vals length exceeds %lu\n",max_query_key_vals);
+                        *err_out = OVERFLOW_ERROR;
+                        free(key);
+                        free(val);
+                        free_query_key_val_t_list(query_key_vals,key_val_count);
+                        return NULL;
+                    }   
+                    valid_query_key_vals = true;
+                    valid_key = false;
+                    valid_val = false;
+                    j = 0;
+                    k = 0;
+                    free(key);
+                    free(val);
+                    key = (char *) calloc(str_len, sizeof(char));
+                    val = (char *) calloc(str_len, sizeof(char));                 
+                    if ((NULL == key) || (NULL == val)) {
+                        fprintf(stderr,"key or val is null\n");
+                        free(key);
+                        free(val);
+                        free_query_key_val_t_list(query_key_vals,key_val_count);
+                        return NULL;
+                    }
+                    state = STATE_KEY_READ;
+                }
+            } else {
+                if (k == (str_len - 1)) {
+                    fprintf(stderr,"val length exceeds %lu\n",str_len);
+                    *err_out = OVERFLOW_ERROR;
+                    free(key);
+                    free(val);
+                    free_query_key_val_t_list(query_key_vals,key_val_count);
+                    return NULL;
+                } else {
+                    val[k++] = c[0];
+                    valid_val = true;
+                }
+            }
+        } else {
+            fprintf(stderr,"unknown parse state\n");
+            free(key);
+            free(val);
+            free_query_key_val_t_list(query_key_vals,key_val_count);
+            return NULL;
+        }
+        c++;
+    }
+
+    if (valid_key && valid_val) {
+        query_key_vals[key_val_count] = (query_key_val_t *) malloc(sizeof(query_key_val_t));
+        if (NULL == query_key_vals[key_val_count]) {
+            fprintf(stderr,"cannot allocate query_key_vals[%lu]\n",key_val_count);
+            free(key);
+            free(val);
+            free_query_key_val_t_list(query_key_vals,key_val_count);
+            return NULL;                        
+        }
+        query_key_vals[key_val_count]->key = strdup(key);
+        query_key_vals[key_val_count]->val = strdup(val);
+        valid_query_key_vals = true;
+        key_val_count++;
+    }
+
+    free(key);
+    free(val);
+    
+    if (!valid_query_key_vals) {
+        fprintf(stderr,"no valid key/val query_key_vals found\n");
+        free_query_key_val_t_list(query_key_vals,key_val_count);
+        return NULL;
+    }
+
+    query_key_vals = (query_key_val_t **) realloc(query_key_vals,key_val_count * sizeof(query_key_val_t *));
+    
+    query_arg_list_t *query_arg_list =
+        (query_arg_list_t *) malloc(sizeof(query_arg_list_t));
+    if (NULL == query_arg_list) {
+        fprintf(stderr,"cannot allocate query_arg_list\n");
+        free_query_key_val_t_list(query_key_vals,key_val_count);
+        return NULL;
+    }
+    bzero((void *) query_arg_list,sizeof(query_arg_list_t));
+    query_arg_list->query_key_vals = query_key_vals;
+    query_arg_list->count = key_val_count;
+    *err_out = NO_UPARSE_ERROR; 
+    return query_arg_list;
 }
 
 

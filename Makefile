@@ -1,4 +1,4 @@
-CC=clang
+CC=clang36
 CFLAGS=-Wall -Werror -Wextra -pedantic -pedantic-errors -std=c11 -O2 -g
 LN_CFLAGS=-O2
 MY_CFLAGS=-I/usr/local/include

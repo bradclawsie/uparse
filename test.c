@@ -63,4 +63,36 @@ int main(void) {
     printf("|%s|\n",esc_result2);
     free(esc_result1);
     free(esc_result2);
+
+    char *arg_str[] = {
+        "a=b&c=d", //ok
+        "aaa=bbb&ccc=ddd", //ok
+        "a=b", //ok
+        "a", //bad
+        "a+b", //bad
+        "a=&b=c", //bad
+        "a=b&&c=d", //bad
+    };
+
+    len = sizeof(arg_str)/sizeof(char *);
+    char *qs;
+    for (size_t i = 0; i < len; i++) {
+        qs = arg_str[i];
+        printf("%s\n",qs);
+        unsigned int err_out = NO_UPARSE_ERROR;
+        query_arg_list_t *r = get_query_arg_list(qs,&err_out);
+        if (NULL == r) {
+            printf("is null\n");
+            if (NO_UPARSE_ERROR != err_out) {
+                printf("there was an error\n");
+            }
+        } else {
+            printf("%lu\n",r->count);
+            size_t i = 0;
+            for (i = 0; i < r->count; i++) {
+                printf("%s -> %s\n",r->query_key_vals[i]->key,r->query_key_vals[i]->val);
+            }
+        }
+        free_arg_list_t(r);
+    }
 }

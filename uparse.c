@@ -41,7 +41,7 @@ char *url_escape(char const *const s) {
     char const *c = s;
 
     size_t j = 0;
-    bool percent_replaced = false;;
+    bool percent_replaced = false;
 
     while (*c) {
         percent_replaced = false;
@@ -101,7 +101,7 @@ void free_url_t(url_t *url) {
 // Get the protocol scheme, and advance past the expected ://
 // Every url has a scheme. If this returns NULL, it is an error
 
-static char *get_protocol_scheme(char **s, unsigned int *err_out) {
+static char *get_protocol_scheme(char const **s, unsigned int *err_out) {
 
     *err_out = UPARSE_ERROR;
 
@@ -111,7 +111,7 @@ static char *get_protocol_scheme(char **s, unsigned int *err_out) {
     }
 
     // Local copy we can advance.
-    char *c = *s;
+    char const *c = *s;
 
     // Choose a sensible limit for a scheme.
     size_t const max_scheme_len = 16;
@@ -185,7 +185,7 @@ static char *get_protocol_scheme(char **s, unsigned int *err_out) {
 // username annotations etc.
 // Every url must have a host. If this returns NULL, it is an error.
 
-char *get_host(char **s, unsigned int *err_out) {
+char *get_host(char const **s, unsigned int *err_out) {
 
     *err_out = UPARSE_ERROR;
 
@@ -195,7 +195,7 @@ char *get_host(char **s, unsigned int *err_out) {
     }
 
     // Local copy we can advance.
-    char *c = *s;
+    char const *c = *s;
 
     // Choose a sensible limit for a host.
     size_t const max_host_len = 128;
@@ -249,7 +249,7 @@ char *get_host(char **s, unsigned int *err_out) {
 // unsigned int, so in the case of an error, we can return
 // ERROR_PORT (-1), which cannot be assigned to the port part of url_t.
 
-int get_port(char **s, unsigned int *err_out) {
+int get_port(char const **s, unsigned int *err_out) {
 
     *err_out = UPARSE_ERROR;
 
@@ -266,7 +266,7 @@ int get_port(char **s, unsigned int *err_out) {
     }
 
     // Local copy we can advance.
-    char *c = *s;
+    char const *c = *s;
 
     // If the first char is not ':', then there is no port designation.
     if (HOST_PORT_DELIM != c[0]) {
@@ -334,7 +334,7 @@ int get_port(char **s, unsigned int *err_out) {
 // A url does not need to have a path, so this can return NULL without an error
 // being thrown
 
-char *get_path(char **s, unsigned int *err_out) {
+char *get_path(char const **s, unsigned int *err_out) {
 
     *err_out = UPARSE_ERROR;
 
@@ -350,7 +350,7 @@ char *get_path(char **s, unsigned int *err_out) {
     }
 
     // Local copy we can advance.
-    char *c = *s;
+    char const *c = *s;
 
     // If the first char is not '/', then there is an error (our string is nonempty here).
     if (PATH_DELIM != c[0]) {
@@ -402,7 +402,7 @@ char *get_path(char **s, unsigned int *err_out) {
 // A url doesn't have to have a ?query arg list, so this can return NULL
 // and not be an error.
 
-char *get_query(char **s, unsigned int *err_out) {
+char *get_query(char const **s, unsigned int *err_out) {
 
     *err_out = UPARSE_ERROR;
 
@@ -419,7 +419,7 @@ char *get_query(char **s, unsigned int *err_out) {
     }
 
     // Local copy we can advance.
-    char *c = *s;
+    char const *c = *s;
 
     // If the first char is not '?', then there is an error (our string is nonempty here).
     if (QUERY_DELIM != c[0]) {
@@ -605,7 +605,21 @@ query_arg_list_t *get_query_arg_list(char *const query_str, unsigned int *err_ou
                         return NULL;                        
                     }
                     query_key_vals[key_val_count]->key = strdup(key);
+                    if (NULL == query_key_vals[key_val_count]->key) {
+                        fprintf(stderr,"cannot allocate query_key_vals[%lu]->key\n",key_val_count);
+                        free(key);
+                        free(val);
+                        free_query_key_val_t_list(query_key_vals,key_val_count);
+                        return NULL;                        
+                    }
                     query_key_vals[key_val_count]->val = strdup(val);
+                    if (NULL == query_key_vals[key_val_count]->val) {
+                        fprintf(stderr,"cannot allocate query_key_vals[%lu]->val\n",key_val_count);
+                        free(key);
+                        free(val);
+                        free_query_key_val_t_list(query_key_vals,key_val_count);
+                        return NULL;                        
+                    }
                     key_val_count++;
                     if (key_val_count == (max_query_key_vals - 1)) {
                         fprintf(stderr,"query query_key_vals length exceeds %lu\n",max_query_key_vals);
@@ -666,7 +680,21 @@ query_arg_list_t *get_query_arg_list(char *const query_str, unsigned int *err_ou
             return NULL;                        
         }
         query_key_vals[key_val_count]->key = strdup(key);
+        if (NULL == query_key_vals[key_val_count]->key) {
+            fprintf(stderr,"cannot allocate query_key_vals[%lu]->key\n",key_val_count);
+            free(key);
+            free(val);
+            free_query_key_val_t_list(query_key_vals,key_val_count);
+            return NULL;                        
+        }
         query_key_vals[key_val_count]->val = strdup(val);
+        if (NULL == query_key_vals[key_val_count]->val) {
+            fprintf(stderr,"cannot allocate query_key_vals[%lu]->val\n",key_val_count);
+            free(key);
+            free(val);
+            free_query_key_val_t_list(query_key_vals,key_val_count);
+            return NULL;                        
+        }
         valid_query_key_vals = true;
         key_val_count++;
     }
@@ -703,7 +731,7 @@ query_arg_list_t *get_query_arg_list(char *const query_str, unsigned int *err_ou
 // No special destructor needed, fragment is just char *. A url does not need to have
 // a fragment, so a NULL return value is not strictly an error.
 
-char *get_fragment(char **s, unsigned int *err_out) {
+char *get_fragment(char const **s, unsigned int *err_out) {
 
     *err_out = UPARSE_ERROR;
 
@@ -720,7 +748,7 @@ char *get_fragment(char **s, unsigned int *err_out) {
     }
 
     // Local copy we can advance.
-    char *c = *s;
+    char const *c = *s;
 
     // If the first char is not '#', then there is an error (our string is nonempty here).
     if (FRAGMENT_DELIM != c[0]) {
@@ -776,20 +804,25 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
     init_url_t(url);
 
     // get a mutable pointer to the url string, and set a copy that can be freed
-    char *s = strdup(url_string);
-    char *const free_s = s;
-
+    char const *s = strdup(url_string);
+    if (NULL == s) {
+        fprintf(stderr,"cannot copy url_string\n");
+        free_url_t(url);
+        return NULL;
+    }
+    char const *const free_s = s;
+    
     char *scheme = get_protocol_scheme(&s,err_out);
     if (NULL == scheme) {
         fprintf(stderr,"cannot get scheme from %s\n",url_string);
         free_url_t(url);
-        free(free_s);
+        free((void *) free_s);
         return NULL;
     }
     if (NO_UPARSE_ERROR != *err_out) {
         fprintf(stderr,"cannot get scheme from %s\n",url_string);
         free_url_t(url);
-        free(free_s);
+        free((void *) free_s);
         free(scheme);
         return NULL;
     }
@@ -799,13 +832,13 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
     if (NULL == host) {
         fprintf(stderr,"cannot get host from %s\n",url_string);
         free_url_t(url);
-        free(free_s);
+        free((void *) free_s);
         return NULL;
     }
     if (NO_UPARSE_ERROR != *err_out) {
         fprintf(stderr,"cannot get host from %s\n",url_string);
         free_url_t(url);
-        free(free_s);
+        free((void *) free_s);
         free(host);
         return NULL;
     }
@@ -815,13 +848,13 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
     if (ERROR_PORT == port) {
         fprintf(stderr,"cannot get port from %s\n",url_string);
         free_url_t(url);
-        free(free_s);
+        free((void *) free_s);
         return NULL;
     }
     if (NO_UPARSE_ERROR != *err_out) {
         fprintf(stderr,"cannot get port from %s\n",url_string);
         free_url_t(url);
-        free(free_s);
+        free((void *) free_s);
         return NULL;
     }
     url->port = port;
@@ -830,13 +863,13 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
     if (NULL == path) {
         fprintf(stderr,"cannot get path from %s\n",url_string);
         free_url_t(url);
-        free(free_s);
+        free((void *) free_s);
         return NULL;
     }
     if (NO_UPARSE_ERROR != *err_out) {
         fprintf(stderr,"cannot get path from %s\n",url_string);
         free_url_t(url);
-        free(free_s);
+        free((void *) free_s);
         free(path);
         return NULL;
     }
@@ -852,7 +885,7 @@ url_t *parse_url(char const *const url_string,unsigned int *err_out) {
         url->fragment = fragment;
     }
     
-    free(free_s);
+    free((void *) free_s);
     return url;
 }
 

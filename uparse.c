@@ -212,7 +212,7 @@ char *get_host(char const **s, unsigned int *err_out) {
             (FRAGMENT_DELIM  == c[0])) {
             break;
         } else if (!(isalnum(c[0]) || (DOMAIN_DELIM == c[0]))) {
-            fprintf(stderr,"host has whitespace '%c'\n",c[0]);
+            fprintf(stderr,"host has invalid char '%c'\n",c[0]);
             return NULL;
         } else if (max_host_len == j) {
             fprintf(stderr,"host exceeds max host len %lu\n",max_host_len);
